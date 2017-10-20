@@ -1,12 +1,20 @@
 const eventTransformer = require('./transform/event');
-const eventsFilter = (events) => {
+const eventsFilter = (data) => {
   let arr = [];
-  events.forEach((evt) => {
+  data.Events.forEach((evt) => {
     if ('Public' === evt.AccessLevel) {
       arr.push(eventTransformer(evt));
     }
   });
-  return arr;
+  data.Events = arr;
+
+  return data;
+};
+
+const writer = (res, data) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.write(JSON.stringify(data));
+  res.end();
 };
 
 module.exports = (apiWorker) => {
@@ -14,22 +22,20 @@ module.exports = (apiWorker) => {
     serve: (req, res, next) => {
       if ('/featuredevents' == req.path) {
         apiWorker.login((data) => {
-          apiWorker.featuredevents(data.Permissions[0].AccountId, data.access_token, (data) => {
-            data.Events = eventsFilter(data.Events);
-            res.setHeader('Content-Type', 'application/json');
-            res.write(JSON.stringify(data));
-            res.end();
-          });
+          apiWorker.featuredevents(data.Permissions[0].AccountId, data.access_token)
+            .then(eventsFilter)
+            .then((data) => {
+              writer(res, data);
+            });
         })
       }
 
       if ('/calendarevents' == req.path) {
         apiWorker.login((data) => {
-          apiWorker.calendarevents(data.Permissions[0].AccountId, data.access_token, (data) => {
-            data.Events = eventsFilter(data.Events);
-            res.setHeader('Content-Type', 'application/json');
-            res.write(JSON.stringify(data));
-            res.end();
+          apiWorker.calendarevents(data.Permissions[0].AccountId, data.access_token)
+          .then(eventsFilter)
+          .then((data) => {
+            writer(res, data);
           });
         })
       }
